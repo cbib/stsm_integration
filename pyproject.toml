@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stsm-integration"
+version = "0.1.0"
+description = "Spatial transcriptomics + spatial metabolomics integration"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "anndata>=0.10",
+    "scanpy>=1.10",
+    "squidpy",
+    "scikit-learn",
+    "scikit-image",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+metaspace = ["metaspace-converter>=1.1"]
+torch = ["torch", "torch-geometric"]
+metrics = ["scib"]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

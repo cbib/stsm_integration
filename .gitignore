@@ -1,0 +1,14 @@
+data/
+results/
+*.h5ad
+*.npy
+*.pt
+*.ckpt
+*.imzML
+*.ibd
+
+# python
+__pycache__/
+*.egg-info/
+.venv/
+.ipynb_checkpoints/
