@@ -17,6 +17,8 @@ dependencies = [
     "scikit-learn",
     "scikit-image",
     "pyyaml",
+    "igraph",
+    "leidenalg",
 ]
 
 [project.optional-dependencies]
