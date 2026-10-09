@@ -32,9 +32,11 @@ def coords_to_um(adata: AnnData, ref_um: float = SPACERANGER_REF_UM) -> None:
 
 
 def mito_cutoff(pct: np.ndarray, n_mad: float = 3.0, floor: float = 5.0) -> float:
-    """Cutoff = max(median + n_mad·MAD, floor), in percent."""
+    """Cutoff = max(median + n_mad·MAD, floor), in percent; NaNs ignored."""
+    pct = pct[np.isfinite(pct)]
+    if pct.size == 0:
+        return floor
     return max(float(np.median(pct) + n_mad * median_abs_deviation(pct)), floor)
-
 
 def qc_filter(adata, mito_prefix="mt-", min_counts=500, min_genes=250,
               min_cells=1, n_mad=3.0, mito_mode="flag"):

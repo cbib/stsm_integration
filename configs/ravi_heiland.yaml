@@ -1,0 +1,29 @@
+cohort: ravi_heiland
+species: human
+tissue: glioblastoma
+paths:
+  raw_st: /mnt/cbib/stsm_integration/data/RaviHeiland
+  raw_sm: null
+  processed: /mnt/cbib/stsm_integration/processed_data/Visium/ravi_heiland/
+  results: /mnt/cbib/stsm_integration/results/ravi_heiland/Visium/
+
+st:
+  platform: visium
+  spot_diameter_um: 55
+  mito_prefix: "MT-"        # human; matching is case-insensitive
+  min_counts: 500
+  min_genes: 250
+  mito_mode: flag
+
+sm:
+  source: metaspace
+  pixel_size_um: 50
+  sm_dataset_id: null
+
+slices:                     # ids = UKF patient numbers; SM pairing by the same id later
+  - {id: UKF248, st: "#UKF248_T_ST", sm_dataset_id: null, reference: null}
+  - {id: UKF259, st: "#UKF259_T_ST", sm_dataset_id: null, reference: null}
+  - {id: UKF260, st: "#UKF260_T_ST", sm_dataset_id: null, reference: null}
+  - {id: UKF262, st: "#UKF262_T_ST", sm_dataset_id: null, reference: null}
+  - {id: UKF269, st: "#UKF269_T_ST", sm_dataset_id: null, reference: null}
+  - {id: UKF275, st: "#UKF275_T_ST", sm_dataset_id: null, reference: null}
