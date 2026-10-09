@@ -16,6 +16,7 @@ dependencies = [
     "squidpy",
     "scikit-learn",
     "scikit-image",
+    "scikit-misc",
     "pyyaml",
     "igraph",
     "leidenalg",

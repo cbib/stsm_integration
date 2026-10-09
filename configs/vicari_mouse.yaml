@@ -1,0 +1,38 @@
+cohort: vicari_mouse
+species: mouse
+paths:
+  raw_st: /mnt/cbib/stsm_integration/data/Vicari/visium/V11T17-101
+  raw_sm: null            # METASPACE dataset IDs below once available
+  processed: /mnt/cbib/stsm_integration/processed_data/Vicari/Visium/Mouse
+  results: /mnt/cbib/stsm_integration/results/Vicari/Visium/Mouse
+
+st:
+  platform: visium
+  spot_diameter_um: 55
+  mito_prefix: "mt-"
+  min_counts: 500 # if null → lower bound = median − 3·MAD of log1p(total_counts)
+  min_genes: 250
+  mito_mode: flag
+
+sm:
+  source: metaspace       # metaspace | local
+  instrument: FT-ICR 7T solariX
+  polarity: negative
+  matrix: 9-AA
+  pixel_size_um: 100
+  database: null          # e.g. [HMDB, v4]
+  fdr: 0.1
+
+slices:                   # pairs by name, never by sort order
+  - id: A1
+    st: V11T17-101_A1
+    sm_dataset_id: null
+    reference: RegionLoupe
+  - id: B1
+    st: V11T17-101_B1
+    sm_dataset_id: null
+    reference: RegionLoupe
+  - id: C1
+    st: V11T17-101_C1
+    sm_dataset_id: null
+    reference: null       # no expert labels yet
