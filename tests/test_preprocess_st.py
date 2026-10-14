@@ -8,9 +8,12 @@ from stsm_integration.preprocess.st import lognormalize, mito_cutoff, preprocess
 
 rng = np.random.default_rng(0)
 
-
-def fake_visium(n=200, g=50, n_mt=5):
-    counts = rng.poisson(3, size=(n, g)).astype(np.float32)
+def fake_visium(n=200, g=50, n_mt=5, n_shallow=0):
+    """n spots, ~20 UMI/gene (~1000 UMI/spot); first 10 high-mito; last n_shallow ~50 UMI."""
+    lam = np.full((n, 1), 20.0)
+    if n_shallow:
+        lam[-n_shallow:] = 1.0
+    counts = rng.poisson(lam, size=(n, g)).astype(np.float32)
     counts[:10, :n_mt] += 200          # 10 high-mito spots
     a = AnnData(X=sp.csr_matrix(counts))
     a.var_names = [f"mt-{i}" for i in range(n_mt)] + [f"g{i}" for i in range(g - n_mt)]
@@ -21,23 +24,31 @@ def fake_visium(n=200, g=50, n_mt=5):
     return a
 
 
+def make_cfg(**over):
+    """cfg with an 'st' block; keyword args override defaults."""
+    st = {"mito_prefix": "mt-", "min_counts": 500, "min_genes": 30,
+          "min_cells": 1, "n_mad": 3.0, "mito_mode": "flag"}
+    return {"st": {**st, **over}}
+
+
 def test_mito_cutoff_floor():
     assert mito_cutoff(np.zeros(100)) == 5.0
 
 
 def test_pipeline_contract_and_filtering():
-    a = preprocess_st(fake_visium(), {"mito_prefix": "mt-"})
+    a = preprocess_st(fake_visium(), make_cfg())
     validate_adata(a, "st")
     assert a.obs["high_mito"].sum() > 0
     assert a.X.min() >= 0
 
 
-def test_coords_converted_to_um():
-    a = preprocess_st(fake_visium(), {})
-    np.testing.assert_allclose(a.obsm["spatial"], a.obsm["spatial_px"] * 0.5)  # 55 µm / 110 px
+def test_coords_scale_from_grid():
+    a = preprocess_st(fake_visium(), make_cfg())
+    ratio = a.obsm["spatial"] / a.obsm["spatial_px"]
+    np.testing.assert_allclose(ratio, a.uns["um_per_px"])
 
 
-def test_lognorm_matches_scanpy():
+def test_lognorm_matches_scanpy():            # unchanged
     import scanpy as sc
     a = fake_visium()
     lognormalize(a)
@@ -50,11 +61,11 @@ def test_lognorm_matches_scanpy():
 def test_counts_untouched():
     a = fake_visium()
     before = a.layers["counts"].toarray().copy()
-    a = preprocess_st(a, {})
+    a = preprocess_st(a, make_cfg())
     assert np.all(np.isin(a.layers["counts"].toarray(), before))
 
+
 def test_visium_spacing_is_100um():
-    # hexagonal grid: 100 µm centre-to-centre, 377.6 px = 65 µm (Space Ranger reference)
     um_per_px = 65.0 / 377.6
     rows, cols = np.meshgrid(np.arange(10), np.arange(10), indexing="ij")
     x_um = cols * 100 + (rows % 2) * 50
@@ -62,7 +73,12 @@ def test_visium_spacing_is_100um():
     a = fake_visium(n=100)
     a.obsm["spatial"] = np.c_[x_um.ravel(), y_um.ravel()] / um_per_px
     a.uns["spatial"]["lib"]["scalefactors"]["spot_diameter_fullres"] = 377.6
-    a = preprocess_st(a, {"mito_prefix": "mt-"})
+    a = preprocess_st(a, make_cfg())
     from sklearn.neighbors import NearestNeighbors
     d, _ = NearestNeighbors(n_neighbors=2).fit(a.obsm["spatial"]).kneighbors(a.obsm["spatial"])
     assert np.median(d[:, 1]) == pytest.approx(100, abs=2)
+
+
+def test_preprocess_applies_qc():
+    a = preprocess_st(fake_visium(n_shallow=20), make_cfg())
+    assert a.n_obs == a.uns["qc"]["spots_out"] == 180          # 20 shallow removed

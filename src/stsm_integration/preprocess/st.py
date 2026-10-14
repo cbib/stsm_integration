@@ -6,8 +6,13 @@ import scanpy as sc
 import scipy.sparse as sp
 from anndata import AnnData
 from scipy.stats import median_abs_deviation
+import pandas as pd
+import json
+from pathlib import Path
+from matplotlib.image import imread
 
 VISIUM_SPOT_UM = 55.0 #physical spot (metadata only)
+VISIUM_PITCH_UM = 100.0   # centre-to-centre, fixed by chip design
 SPACERANGER_REF_UM = 65.0 # what spot_diameter_fullres measures
 
 def load_visium(path: str, slice_id: str) -> AnnData:
@@ -18,17 +23,65 @@ def load_visium(path: str, slice_id: str) -> AnnData:
     adata.var_names_make_unique()
     adata.layers["counts"] = adata.X.copy()
     adata.uns["slice_id"] = slice_id
+    return annotate_species(adata)
+
+SPECIES_BY_PREFIX = {"ENSMUSG": "mouse", "ENSG": "human"}   # mouse first: "ENSG" is a prefix of neither, but keep order explicit
+
+def annotate_species(adata):
+    """Set var['species'], uns['genome'] ('human'|'mouse'|'both'|'unknown'), obs['human_frac'] if both."""
+    ids = adata.var.get("gene_ids", pd.Series("", index=adata.var_names)).astype(str)
+    species = np.full(adata.n_vars, "unknown", dtype=object)
+    species[ids.str.startswith("ENSMUSG").values] = "mouse"
+    species[ids.str.startswith("ENSG").values] = "human"
+    adata.var["species"] = pd.Categorical(species)
+    found = set(species) - {"unknown"}
+    adata.uns["genome"] = "both" if len(found) == 2 else (found.pop() if found else "unknown")
+    if adata.uns["genome"] == "both":
+        X = adata.layers["counts"]
+        hum = np.asarray(X[:, species == "human"].sum(1)).ravel()
+        tot = np.asarray(X.sum(1)).ravel()
+        adata.obs["human_frac"] = np.divide(hum, tot, out=np.zeros_like(hum, float), where=tot > 0)
     return adata
 
 
-def coords_to_um(adata: AnnData, ref_um: float = SPACERANGER_REF_UM) -> None:
-    """Convert obsm['spatial'] from full-res pixels to µm; keep pixels in obsm['spatial_px']."""
+def load_stq(path, slice_id):
+    """Load an STQ output (raw mtx + spatial/) as a Visium-like AnnData, in-tissue spots only."""
+    path = Path(path)
+    adata = sc.read_10x_mtx(path / "raw_feature_bc_matrix", var_names="gene_symbols", gex_only=False)
+    adata.var_names_make_unique()
+    pos = pd.read_csv(path / "spatial/tissue_positions.csv").set_index("barcode")
+    pos = pos.loc[pos["in_tissue"] == 1]
+    adata = adata[adata.obs_names.isin(pos.index)].copy()
+    pos = pos.loc[adata.obs_names]
+    adata.obs[["array_row", "array_col"]] = pos[["array_row", "array_col"]].values
+    adata.obsm["spatial"] = pos[["pxl_col_in_fullres", "pxl_row_in_fullres"]].to_numpy(float)  # x, y
+    sf = json.loads((path / "spatial/scalefactors_json.json").read_text())
+    sp_dir = path / "spatial"
+    images = {k: imread(sp_dir / f"tissue_{k}_image.png") for k in ("hires", "lowres")
+              if (sp_dir / f"tissue_{k}_image.png").exists()}
+    adata.uns["spatial"] = {slice_id: {"scalefactors": sf, "images": images}}
+    adata.layers["counts"] = adata.X.copy()
+    adata.uns["slice_id"] = slice_id
+    return annotate_species(adata)
+
+LOADERS = {"visium": load_visium, "stq": load_stq}
+def load_slice(cfg, slice_cfg):
+    """Load one slice using slice_cfg['loader'] (default 'visium')."""
+    path = Path(cfg["paths"]["raw_st"]) / slice_cfg["st"]
+    return LOADERS[slice_cfg.get("loader", "visium")](path, slice_cfg["id"])
+
+def coords_to_um(adata: AnnData, pitch_um: float = VISIUM_PITCH_UM) -> None:
+    """obsm['spatial'] px → µm, scaled so median nearest-neighbour = pitch_um; px kept in obsm['spatial_px']."""
+    from sklearn.neighbors import NearestNeighbors
+    px = np.asarray(adata.obsm["spatial"], dtype=float)
+    d, _ = NearestNeighbors(n_neighbors=2).fit(px).kneighbors(px)
+    um_per_px = pitch_um / float(np.median(d[:, 1]))
     lib = next(iter(adata.uns["spatial"]))
     diam_px = adata.uns["spatial"][lib]["scalefactors"]["spot_diameter_fullres"]
-    um_per_px = ref_um / diam_px
-    adata.obsm["spatial_px"] = np.asarray(adata.obsm["spatial"], dtype=float)
-    adata.obsm["spatial"] = adata.obsm["spatial_px"] * um_per_px
+    adata.obsm["spatial_px"] = px
+    adata.obsm["spatial"] = px * um_per_px
     adata.uns["um_per_px"] = um_per_px
+    adata.uns["um_per_px_from_diameter"] = SPACERANGER_REF_UM / diam_px   # cross-check only
 
 
 def mito_cutoff(pct: np.ndarray, n_mad: float = 3.0, floor: float = 5.0) -> float:
@@ -86,19 +139,21 @@ def lognormalize(adata: AnnData, target_sum: float = 1e4) -> None:
     adata.X = adata.layers["lognorm"].copy()
 
 
-def preprocess_st(adata: AnnData, cfg: dict) -> AnnData:
-    """Full ST pipeline for one slice. cfg: the 'st' block of a cohort config."""
-    if "spatial" in adata.uns:
-        coords_to_um(adata)
-    adata = qc_filter(
-        adata,
-        mito_prefix=cfg.get("mito_prefix", "mt-"),
-        min_counts=cfg.get("min_counts", None),
-        min_genes=cfg.get("min_genes", None),
-        min_cells=cfg.get("min_cells", 1),
-        mito_mode=cfg.get("mito_mode", "flag"),
-    )
+def preprocess_st(adata, cfg, slice_cfg=None):
+    """Convert coords to µm, QC, log-normalize. slice_cfg['qc'] overrides cfg['st']."""
+    slice_cfg = slice_cfg or {}
+    qc = {**cfg["st"], **slice_cfg.get("qc", {})}          # ← per-slice override
+    coords_to_um(adata)
+    adata = qc_filter(adata,
+              mito_prefix=qc["mito_prefix"],
+              min_counts=qc["min_counts"],
+              min_genes=qc["min_genes"],
+              min_cells=qc.get("min_cells", 1),
+              n_mad=qc.get("n_mad", 3.0),
+              mito_mode=qc.get("mito_mode", "flag"))
     lognormalize(adata)
     adata.uns["modality"] = "st"
-    adata.uns["pixel_size_um"] = cfg.get("spot_diameter_um", VISIUM_SPOT_UM)
+    adata.uns["pixel_size_um"] = cfg["st"].get("spot_diameter_um", 55.0)
+    if "model" in slice_cfg:
+        adata.uns["model"] = slice_cfg["model"]
     return adata
