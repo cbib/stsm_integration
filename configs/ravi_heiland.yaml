@@ -2,10 +2,10 @@ cohort: ravi_heiland
 species: human
 tissue: glioblastoma
 paths:
-  raw_st: /mnt/cbib/stsm_integration/data/RaviHeiland
+  raw_st: ${DATA_ROOT}/stsm_integration/data/RaviHeiland
   raw_sm: null
-  processed_st: /mnt/cbib/stsm_integration/processed_data/Visium/ravi_heiland/
-  results_st: /mnt/cbib/stsm_integration/results/ravi_heiland/Visium/
+  processed_st: ${DATA_ROOT}/stsm_integration/processed_data/Visium/ravi_heiland/
+  results_st: ${DATA_ROOT}/stsm_integration/results/ravi_heiland/Visium/
   processed_sm: null
   results_sm: null
 

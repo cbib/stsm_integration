@@ -1,10 +1,10 @@
 cohort: vicari_mouse
 species: mouse
 paths:
-  raw_st: /mnt/cbib/stsm_integration/data/Vicari/visium/V11T17-101
+  raw_st: ${DATA_ROOT}/stsm_integration/data/Vicari/visium/V11T17-101
   raw_sm: null            # METASPACE dataset IDs below once available
-  processed_st: /mnt/cbib/stsm_integration/processed_data/Visium/Vicari/Mouse
-  results_st: /mnt/cbib/stsm_integration/results/Vicari/Visium/Mouse
+  processed_st: ${DATA_ROOT}/stsm_integration/processed_data/Visium/Vicari/Mouse
+  results_st: ${DATA_ROOT}/stsm_integration/results/Vicari/Visium/Mouse
   processed_sm: null
   results_sm: null
 
