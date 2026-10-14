@@ -1,11 +1,14 @@
+# data & outputs
 data/
+processed_data/
 results/
 *.h5ad
-*.npy
-*.pt
-*.ckpt
-*.imzML
-*.ibd
+*.zarr
+
+# private cohort
+configs/daubon.yaml
+configs/*.local.yaml
+notebooks/**/*daubon*
 
 # python
 __pycache__/
