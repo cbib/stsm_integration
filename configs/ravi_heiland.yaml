@@ -4,8 +4,10 @@ tissue: glioblastoma
 paths:
   raw_st: /mnt/cbib/stsm_integration/data/RaviHeiland
   raw_sm: null
-  processed: /mnt/cbib/stsm_integration/processed_data/Visium/ravi_heiland/
-  results: /mnt/cbib/stsm_integration/results/ravi_heiland/Visium/
+  processed_st: /mnt/cbib/stsm_integration/processed_data/Visium/ravi_heiland/
+  results_st: /mnt/cbib/stsm_integration/results/ravi_heiland/Visium/
+  processed_sm: null
+  results_sm: null
 
 st:
   platform: visium

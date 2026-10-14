@@ -3,8 +3,10 @@ species: mouse
 paths:
   raw_st: /mnt/cbib/stsm_integration/data/Vicari/visium/V11T17-101
   raw_sm: null            # METASPACE dataset IDs below once available
-  processed: /mnt/cbib/stsm_integration/processed_data/Vicari/Visium/Mouse
-  results: /mnt/cbib/stsm_integration/results/Vicari/Visium/Mouse
+  processed_st: /mnt/cbib/stsm_integration/processed_data/Visium/Vicari/Mouse
+  results_st: /mnt/cbib/stsm_integration/results/Vicari/Visium/Mouse
+  processed_sm: null
+  results_sm: null
 
 st:
   platform: visium

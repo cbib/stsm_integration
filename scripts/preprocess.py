@@ -13,7 +13,7 @@ def main() -> None:
     args = ap.parse_args()
 
     cfg = load_config(args.config)
-    raw, out = Path(cfg["paths"]["raw_st"]), Path(cfg["paths"]["processed"]) / "ST"
+    raw, out = Path(cfg["paths"]["raw_st"]), Path(cfg["paths"]["processed_st"]) / "ST"
     out.mkdir(parents=True, exist_ok=True)
 
     for s in cfg["slices"]:
